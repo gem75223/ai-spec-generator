@@ -1,7 +1,7 @@
 package com.example.specgenerator.security.services;
 
-import com.example.specgenerator.model.User;
-import com.example.specgenerator.repository.UserRepository;
+import com.example.specgenerator.model.Member;
+import com.example.specgenerator.repository.MemberRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -9,23 +9,23 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
     @Autowired
-    UserRepository userRepository;
+    MemberRepository memberRepository;
 
     @Override
     @Transactional
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User Not Found with email: " + email));
 
+        // Mapping Member to UserDetails
+        // Defaults: role "USER" since schema doesn't have role table.
         return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUsername())
-                .password(user.getPassword())
-                .roles(user.getRole() != null ? user.getRole() : "USER")
+                .username(member.getEmail())
+                .password(member.getPassword())
+                .roles("USER")
                 .build();
     }
 }

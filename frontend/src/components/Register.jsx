@@ -1,24 +1,59 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthService from '../services/auth.service';
+import chowImage from '../assets/chowcow.png';
 
 const Register = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [successful, setSuccessful] = useState(false);
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        gender: '',
+        birthday: ''
+    });
+
+    const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const [successful, setSuccessful] = useState(false);
     const navigate = useNavigate();
+
+    const handleChange = (e) => {
+        const { id, value } = e.target;
+        setFormData(prevState => ({
+            ...prevState,
+            [id]: value
+        }));
+    };
 
     const handleRegister = (e) => {
         e.preventDefault();
         setMessage('');
         setSuccessful(false);
+        setLoading(true);
 
-        AuthService.register(username, password).then(
+        // Simple validation
+        if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+            setMessage('Please fill in all required fields.');
+            setLoading(false);
+            return;
+        }
+
+        AuthService.register(
+            formData.name,
+            formData.email,
+            formData.phone,
+            formData.password,
+            formData.gender,
+            formData.birthday
+        ).then(
             (response) => {
                 setMessage(response.data.message);
                 setSuccessful(true);
-                setTimeout(() => navigate('/login'), 2000);
+                setLoading(false);
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000);
             },
             (error) => {
                 const resMessage =
@@ -30,49 +65,131 @@ const Register = () => {
 
                 setMessage(resMessage);
                 setSuccessful(false);
+                setLoading(false);
             }
         );
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="px-8 py-6 mt-4 text-left bg-white shadow-lg rounded-lg">
-                <h3 className="text-2xl font-bold text-center">Create an account</h3>
-                <form onSubmit={handleRegister}>
-                    <div className="mt-4">
-                        <div>
-                            <label className="block" htmlFor="username">Username</label>
+        <div className="relative min-h-screen w-full flex items-center justify-end font-sans select-none px-20">
+            {/* Full Screen Background Image */}
+            <div
+                className="absolute inset-0 z-0"
+                style={{
+                    backgroundImage: `url(${chowImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                }}
+            />
+
+            {/* Register Card */}
+            <div className="relative z-10 w-full max-w-[784px] p-4 flex items-center justify-end">
+                <div className="bg-[#313338] rounded-[5px] shadow-lg p-8 w-full max-w-[480px] text-[#dbdee1] transform transition-all duration-200 login-card-animation">
+                    <div className="text-center mb-6">
+                        <h1 className="text-2xl font-bold text-white mb-2">Create an Account</h1>
+                        <p className="text-[#b5bac1] text-[16px]">Join us today!</p>
+                    </div>
+
+                    <form onSubmit={handleRegister} className="space-y-4">
+                        <div className="space-y-2">
+                            <label htmlFor="name" className="block text-[12px] font-bold text-[#b5bac1] uppercase tracking-wider">Name <span className="text-red-500">*</span></label>
                             <input
                                 type="text"
-                                placeholder="Username"
-                                className="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
+                                id="name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                className="w-full bg-[#1e1f22] border-none rounded-[3px] p-2.5 text-white h-[40px] focus:outline-none focus:ring-0 transition-all font-normal"
                                 required
                             />
                         </div>
-                        <div className="mt-4">
-                            <label className="block" htmlFor="password">Password</label>
+
+                        <div className="space-y-2">
+                            <label htmlFor="email" className="block text-[12px] font-bold text-[#b5bac1] uppercase tracking-wider">Email <span className="text-red-500">*</span></label>
+                            <input
+                                type="email"
+                                id="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                className="w-full bg-[#1e1f22] border-none rounded-[3px] p-2.5 text-white h-[40px] focus:outline-none focus:ring-0 transition-all font-normal"
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor="phone" className="block text-[12px] font-bold text-[#b5bac1] uppercase tracking-wider">Phone <span className="text-red-500">*</span></label>
+                            <input
+                                type="tel"
+                                id="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                className="w-full bg-[#1e1f22] border-none rounded-[3px] p-2.5 text-white h-[40px] focus:outline-none focus:ring-0 transition-all font-normal"
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor="password" className="block text-[12px] font-bold text-[#b5bac1] uppercase tracking-wider">Password <span className="text-red-500">*</span></label>
                             <input
                                 type="password"
-                                placeholder="Password"
-                                className="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                id="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                className="w-full bg-[#1e1f22] border-none rounded-[3px] p-2.5 text-white h-[40px] focus:outline-none focus:ring-0 transition-all font-normal"
                                 required
                             />
                         </div>
-                        <div className="flex items-baseline justify-between">
-                            <button className="px-6 py-2 mt-4 text-white bg-blue-600 rounded-lg hover:bg-blue-900">Register</button>
-                            <a href="/login" className="text-sm text-blue-600 hover:underline">Login</a>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label htmlFor="gender" className="block text-[12px] font-bold text-[#b5bac1] uppercase tracking-wider">Gender</label>
+                                <select
+                                    id="gender"
+                                    value={formData.gender}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#1e1f22] border-none rounded-[3px] p-2.5 text-white h-[40px] focus:outline-none focus:ring-0 transition-all font-normal appearance-none"
+                                >
+                                    <option value="">Select</option>
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                    <option value="O">Other</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label htmlFor="birthday" className="block text-[12px] font-bold text-[#b5bac1] uppercase tracking-wider">Birthday</label>
+                                <input
+                                    type="date"
+                                    id="birthday"
+                                    value={formData.birthday}
+                                    onChange={handleChange}
+                                    className="w-full bg-[#1e1f22] border-none rounded-[3px] p-2.5 text-white h-[40px] focus:outline-none focus:ring-0 transition-all font-normal"
+                                />
+                            </div>
                         </div>
-                    </div>
-                </form>
-                {message && (
-                    <div className={`mt-4 text-sm text-center ${successful ? 'text-green-500' : 'text-red-500'}`}>
-                        {message}
-                    </div>
-                )}
+
+                        <button
+                            className="w-full bg-[#5865f2] hover:bg-[#4752c4] text-white font-medium rounded-[3px] h-[44px] transition-colors duration-200 mt-6 text-[16px]"
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <div className="flex items-center justify-center">
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                </div>
+                            ) : 'Register'}
+                        </button>
+
+                        <div className="text-[14px] text-[#949ba4] mt-4">
+                            Already have an account?{' '}
+                            <a href="/login" className="text-[#00a8fc] hover:underline">Log In</a>
+                        </div>
+                    </form>
+
+                    {message && (
+                        <div className={`mt-4 text-xs font-semibold uppercase text-center ${successful ? 'text-green-400' : 'text-[#fa777c]'}`}>
+                            {message}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

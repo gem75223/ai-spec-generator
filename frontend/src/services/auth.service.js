@@ -1,10 +1,13 @@
 import api from './api';
 
-const register = (username, password) => {
+const register = (name, email, phone, password, gender, birthday) => {
     return api.post('/auth/signup', {
-        username,
+        name,
+        email,
+        phone,
         password,
-        role: ['user']
+        gender,
+        birthday
     });
 };
 
@@ -29,11 +32,26 @@ const getCurrentUser = () => {
     return JSON.parse(localStorage.getItem('user'));
 };
 
+const forgotPassword = (email) => {
+    return api.post('/auth/forgot-password', {
+        email
+    });
+};
+
+const resetPassword = (token, newPassword) => {
+    return api.post('/auth/reset-password', {
+        token,
+        newPassword
+    });
+};
+
 const AuthService = {
     register,
     login,
     logout,
     getCurrentUser,
+    forgotPassword,
+    resetPassword,
 };
 
 export default AuthService;

@@ -1,11 +1,13 @@
 package com.example.specgenerator.controller;
 
-import com.example.specgenerator.model.User;
+import com.example.specgenerator.model.Member;
+import com.example.specgenerator.payload.request.ForgotPasswordRequest;
 import com.example.specgenerator.payload.request.LoginRequest;
+import com.example.specgenerator.payload.request.ResetPasswordRequest;
 import com.example.specgenerator.payload.request.SignupRequest;
 import com.example.specgenerator.payload.response.JwtResponse;
 import com.example.specgenerator.payload.response.MessageResponse;
-import com.example.specgenerator.repository.UserRepository;
+import com.example.specgenerator.repository.MemberRepository;
 import com.example.specgenerator.security.jwt.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,70 +20,126 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    @Autowired
-    AuthenticationManager authenticationManager;
+        @Autowired
+        AuthenticationManager authenticationManager;
 
-    @Autowired
-    UserRepository userRepository;
+        @Autowired
+        MemberRepository memberRepository;
 
-    @Autowired
-    PasswordEncoder encoder;
+        @Autowired
+        PasswordEncoder encoder;
 
-    @Autowired
-    JwtUtils jwtUtils;
+        @Autowired
+        JwtUtils jwtUtils;
 
-    @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        @PostMapping("/signin")
+        public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+                // loginRequest.getUsername() is actually the email
+                Authentication authentication = authenticationManager.authenticate(
+                                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(),
+                                                loginRequest.getPassword()));
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                String jwt = jwtUtils.generateJwtToken(authentication);
 
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
+                UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+                List<String> roles = userDetails.getAuthorities().stream()
+                                .map(item -> item.getAuthority())
+                                .collect(Collectors.toList());
 
-        return ResponseEntity.ok(new JwtResponse(jwt,
-                // userDetails.getId(), // Need to cast to custom UserDetails if we want ID, or
-                // fetch from repo
-                // For simplicity, we'll fetch user again or just return 0 for now if ID is not
-                // in standard UserDetails
-                // Actually, let's fix this properly by using a custom UserDetails
-                // implementation or just fetching the user.
-                // Since we used standard User builder in UserDetailsServiceImpl, we don't have
-                // the ID directly there.
-                // Let's fetch the user by username.
-                userRepository.findByUsername(userDetails.getUsername()).get().getId(),
-                userDetails.getUsername(),
-                roles));
-    }
+                Long memberId = memberRepository.findByEmail(userDetails.getUsername())
+                                .map(Member::getId)
+                                .orElse(null);
 
-    @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
-        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(new MessageResponse("Error: Username is already taken!"));
+                // Update last login
+                memberRepository.findByEmail(userDetails.getUsername()).ifPresent(member -> {
+                        member.setLastLoginAt(LocalDateTime.now());
+                        memberRepository.save(member);
+                });
+
+                return ResponseEntity.ok(new JwtResponse(jwt,
+                                memberId,
+                                userDetails.getUsername(),
+                                roles));
         }
 
-        // Create new user's account
-        User user = new User();
-        user.setUsername(signUpRequest.getUsername());
-        user.setPassword(encoder.encode(signUpRequest.getPassword()));
-        user.setRole("USER");
+        @PostMapping("/signup")
+        public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
+                if (memberRepository.existsByEmail(signUpRequest.getEmail())) {
+                        return ResponseEntity
+                                        .badRequest()
+                                        .body(new MessageResponse("Error: Email is already in use!"));
+                }
 
-        userRepository.save(user);
+                if (memberRepository.existsByPhone(signUpRequest.getPhone())) {
+                        return ResponseEntity
+                                        .badRequest()
+                                        .body(new MessageResponse("Error: Phone number is already in use!"));
+                }
 
-        return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
-    }
+                // Create new member's account
+                Member member = new Member();
+                member.setName(signUpRequest.getName());
+                member.setEmail(signUpRequest.getEmail());
+                member.setPhone(signUpRequest.getPhone());
+                member.setPassword(encoder.encode(signUpRequest.getPassword()));
+                member.setGender(signUpRequest.getGender());
+                member.setBirthday(signUpRequest.getBirthday());
+
+                // Generate Member Code
+                member.setMemberCode(UUID.randomUUID().toString().replace("-", ""));
+
+                // Status and Verified fields have defaults in Entity
+
+                memberRepository.save(member);
+
+                return ResponseEntity.ok(new MessageResponse("Member registered successfully!"));
+        }
+
+        @PostMapping("/forgot-password")
+        public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+                Member member = memberRepository.findByEmail(request.getEmail())
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Error: Member not found with email: " + request.getEmail()));
+
+                // Generate token
+                String token = UUID.randomUUID().toString();
+                member.setResetPasswordToken(token);
+                member.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(24)); // 24 hours expiry
+                memberRepository.save(member);
+
+                // TODO: Send email with token
+                System.out.println("Reset Token for " + request.getEmail() + ": " + token);
+
+                return ResponseEntity.ok(new MessageResponse("Password reset token generated. Check console/email."));
+        }
+
+        @PostMapping("/reset-password")
+        public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+                String token = request.getToken();
+
+                Member member = memberRepository.findByResetPasswordToken(token)
+                                .orElseThrow(() -> new RuntimeException("Error: Invalid or expired token."));
+
+                if (member.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
+                        return ResponseEntity.badRequest().body(new MessageResponse("Error: Token has expired."));
+                }
+
+                member.setPassword(encoder.encode(request.getNewPassword()));
+                member.setResetPasswordToken(null);
+                member.setResetPasswordTokenExpiry(null);
+                memberRepository.save(member);
+
+                return ResponseEntity.ok(new MessageResponse("Password reset successfully!"));
+        }
 }
