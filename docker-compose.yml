@@ -20,18 +20,19 @@ services:
       context: ./frontend
       dockerfile: ../Dockerfile.frontend
     ports:
-      - "3000:80"
+      - "3001:80"
     depends_on:
       - backend
 
   db:
     image: postgres:13-alpine
+
     environment:
       - POSTGRES_DB=specdb
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

@@ -44,29 +44,75 @@ public class SpecController {
         spec.setRequirementDescription(requirement);
 
         // Generate content using AI
-        // In a real app, we might want to parallelize these or use a single prompt to
-        // get JSON output
-        // For simplicity, we'll do sequential calls or one big call.
-        // Let's do one big call and ask for JSON format to parse.
-
-        String prompt = "You are a technical architect. Based on the following requirement, generate a technical specification in JSON format with the following keys: 'apiSpec' (OpenAPI 3.0 YAML/JSON), 'dbSchema' (SQL), 'sequenceDiagram' (Mermaid syntax), 'mockData' (JSON example). Requirement: "
-                + requirement;
+        String prompt = "You are a technical architect. Based on the following requirement, generate a technical specification in JSON format. "
+                +
+                "The JSON object MUST contain exactly these four keys: " +
+                "'apiSpec' (OpenAPI 3.0 YAML or JSON string), " +
+                "'dbSchema' (SQL create table statements), " +
+                "'sequenceDiagram' (Mermaid sequenceDiagram syntax), " +
+                "'mockData' (JSON example data). " +
+                "Do not include markdown code blocks (```json) in the response, just the raw JSON object. " +
+                "Requirement: " + requirement;
 
         String aiResponse = aiService.generateSpecContent(prompt);
 
-        // Very naive parsing for demo purposes. In reality, we should enforce JSON
-        // structure more strictly.
-        // We'll just save the raw response in apiSpec for now if parsing fails, or try
-        // to split it.
-        // For this MVP, let's assume the AI returns a JSON string.
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, String> parsed = mapper.readValue(aiResponse, Map.class);
 
-        spec.setApiSpec(aiResponse); // Storing full response for now as we don't have a robust parser yet
-        spec.setDbSchema("-- See API Spec for full details --");
-        spec.setSequenceDiagram("sequenceDiagram\nUser->>System: " + requirement);
-        spec.setMockData("{}");
+            spec.setApiSpec(parsed.getOrDefault("apiSpec", aiResponse));
+            spec.setDbSchema(parsed.getOrDefault("dbSchema", "-- No DB Schema generated"));
+            spec.setSequenceDiagram(parsed.getOrDefault("sequenceDiagram",
+                    "sequenceDiagram\nNote right of User: Parsing failed or empty"));
+            spec.setMockData(parsed.getOrDefault("mockData", "{}"));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Fallback
+            spec.setApiSpec(aiResponse);
+            spec.setDbSchema("-- Error parsing AI response");
+            spec.setSequenceDiagram("sequenceDiagram\nNote right of User: Error parsing AI response");
+            spec.setMockData("{}");
+        }
 
         specRepository.save(spec);
 
         return ResponseEntity.ok(spec);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateSpec(@PathVariable Long id, @RequestBody GeneratedSpec specDetails) {
+        GeneratedSpec spec = specRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("錯誤：找不到規格"));
+
+        spec.setApiSpec(specDetails.getApiSpec());
+        spec.setDbSchema(specDetails.getDbSchema());
+        spec.setSequenceDiagram(specDetails.getSequenceDiagram());
+        spec.setMockData(specDetails.getMockData());
+        specRepository.save(spec);
+        return ResponseEntity.ok(spec);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteSpec(@PathVariable Long id) {
+        GeneratedSpec spec = specRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("錯誤：找不到規格"));
+
+        specRepository.delete(spec);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/refine")
+    public ResponseEntity<?> refineSpec(@RequestBody Map<String, String> request) {
+        String section = request.get("section");
+        String instruction = request.get("instruction");
+        String currentContent = request.get("currentContent");
+
+        String refinedContent = aiService.refineContent(section, currentContent, instruction);
+
+        java.util.Map<String, String> response = new java.util.HashMap<>();
+        response.put("refinedContent", refinedContent);
+
+        return ResponseEntity.ok(response);
     }
 }

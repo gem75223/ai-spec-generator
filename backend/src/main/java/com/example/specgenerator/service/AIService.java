@@ -21,6 +21,33 @@ public class AIService {
 
     // Simple implementation for OpenAI Chat Completion
     public String generateSpecContent(String prompt) {
+        return callOpenAi(prompt, true);
+    }
+
+    public String refineContent(String section, String currentContent, String instruction) {
+        if (openAiApiKey == null || openAiApiKey.isEmpty()) {
+            return "Error: OpenAI API Key not configured.";
+        }
+
+        String prompt = "You are a technical expert. Refine the following code based on the instruction. \n" +
+                "Section Type: " + section + "\n" +
+                "Instruction: " + instruction + "\n" +
+                "Current Content:\n" + currentContent + "\n\n" +
+                "Return ONLY the updated code without any markdown formatting (no ```).";
+
+        // Reuse generateSpecContent logic for now as it's just a chat completion
+        // But we need to be careful about JSON mode. Refine might just want string
+        // output.
+        // Let's create a shared private method or just copy logic for simplicity in
+        // this MVP
+        // to toggle JSON mode off for this specific call if needed.
+        // Actually, generateSpecContent forces JSON mode now. We should probably
+        // refactor or make a new method.
+
+        return callOpenAi(prompt, false);
+    }
+
+    private String callOpenAi(String prompt, boolean jsonMode) {
         if (openAiApiKey == null || openAiApiKey.isEmpty()) {
             return "Error: OpenAI API Key not configured.";
         }
@@ -33,7 +60,13 @@ public class AIService {
         headers.setBearerAuth(openAiApiKey);
 
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", "gpt-3.5-turbo");
+        requestBody.put("model", "gpt-3.5-turbo-1106");
+
+        if (jsonMode) {
+            Map<String, String> responseFormat = new HashMap<>();
+            responseFormat.put("type", "json_object");
+            requestBody.put("response_format", responseFormat);
+        }
 
         List<Map<String, String>> messages = new ArrayList<>();
         Map<String, String> message = new HashMap<>();

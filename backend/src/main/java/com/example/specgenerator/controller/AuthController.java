@@ -78,13 +78,13 @@ public class AuthController {
                 if (memberRepository.existsByEmail(signUpRequest.getEmail())) {
                         return ResponseEntity
                                         .badRequest()
-                                        .body(new MessageResponse("Error: Email is already in use!"));
+                                        .body(new MessageResponse("錯誤：Email 已被註冊！"));
                 }
 
                 if (memberRepository.existsByPhone(signUpRequest.getPhone())) {
                         return ResponseEntity
                                         .badRequest()
-                                        .body(new MessageResponse("Error: Phone number is already in use!"));
+                                        .body(new MessageResponse("錯誤：電話號碼已被使用！"));
                 }
 
                 // Create new member's account
@@ -103,14 +103,17 @@ public class AuthController {
 
                 memberRepository.save(member);
 
-                return ResponseEntity.ok(new MessageResponse("Member registered successfully!"));
+                return ResponseEntity.ok(new MessageResponse("註冊成功！"));
         }
+
+        @Autowired
+        com.example.specgenerator.service.EmailService emailService;
 
         @PostMapping("/forgot-password")
         public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
                 Member member = memberRepository.findByEmail(request.getEmail())
                                 .orElseThrow(() -> new RuntimeException(
-                                                "Error: Member not found with email: " + request.getEmail()));
+                                                "錯誤：找不到此 Email 的使用者: " + request.getEmail()));
 
                 // Generate token
                 String token = UUID.randomUUID().toString();
@@ -118,10 +121,15 @@ public class AuthController {
                 member.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(24)); // 24 hours expiry
                 memberRepository.save(member);
 
-                // TODO: Send email with token
+                // Send email
+                emailService.sendSimpleMessage(
+                                request.getEmail(),
+                                "密碼重置請求",
+                                "若要重置您的密碼，請使用以下 Token: " + token);
+
                 System.out.println("Reset Token for " + request.getEmail() + ": " + token);
 
-                return ResponseEntity.ok(new MessageResponse("Password reset token generated. Check console/email."));
+                return ResponseEntity.ok(new MessageResponse("密碼重置 Token 已生成並發送至您的 Email。"));
         }
 
         @PostMapping("/reset-password")
@@ -129,10 +137,10 @@ public class AuthController {
                 String token = request.getToken();
 
                 Member member = memberRepository.findByResetPasswordToken(token)
-                                .orElseThrow(() -> new RuntimeException("Error: Invalid or expired token."));
+                                .orElseThrow(() -> new RuntimeException("錯誤：無效或過期的 Token。"));
 
                 if (member.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
-                        return ResponseEntity.badRequest().body(new MessageResponse("Error: Token has expired."));
+                        return ResponseEntity.badRequest().body(new MessageResponse("錯誤：Token 已過期。"));
                 }
 
                 member.setPassword(encoder.encode(request.getNewPassword()));
@@ -140,6 +148,6 @@ public class AuthController {
                 member.setResetPasswordTokenExpiry(null);
                 memberRepository.save(member);
 
-                return ResponseEntity.ok(new MessageResponse("Password reset successfully!"));
+                return ResponseEntity.ok(new MessageResponse("密碼重置成功！"));
         }
 }
