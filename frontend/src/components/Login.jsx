@@ -35,7 +35,7 @@ const Login = () => {
     };
 
     return (
-        <div className="relative min-h-screen w-full flex items-center justify-center font-sans">
+        <div className="relative min-h-screen w-full flex items-center justify-end font-sans">
             {/* Background with warm overlay */}
             <div
                 className="absolute inset-0 z-0"
@@ -49,7 +49,7 @@ const Login = () => {
             </div>
 
             {/* Login Card */}
-            <div className="relative z-10 w-full max-w-md p-6">
+            <div className="relative z-10 w-full max-w-md p-6 mr-12">
                 <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-10 transform transition-all border border-stone-100">
                     <div className="text-center mb-10">
                         <h1 className="text-3xl font-bold text-stone-800 mb-3">歡迎回來</h1>

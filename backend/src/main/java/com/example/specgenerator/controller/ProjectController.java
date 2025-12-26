@@ -1,9 +1,9 @@
 package com.example.specgenerator.controller;
 
 import com.example.specgenerator.model.Project;
-import com.example.specgenerator.model.User;
+import com.example.specgenerator.model.Member;
 import com.example.specgenerator.repository.ProjectRepository;
-import com.example.specgenerator.repository.UserRepository;
+import com.example.specgenerator.repository.MemberRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,33 +21,33 @@ public class ProjectController {
     ProjectRepository projectRepository;
 
     @Autowired
-    UserRepository userRepository;
+    MemberRepository memberRepository;
 
     @GetMapping
     public List<Project> getAllProjects() {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return projectRepository.findByUserId(user.getId());
+        Member member = memberRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+        return projectRepository.findByMemberId(member.getId());
     }
 
     @PostMapping
     public Project createProject(@RequestBody Project project) {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        project.setUser(user);
+        Member member = memberRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+        project.setMember(member);
         return projectRepository.save(project);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Project> getProjectById(@PathVariable Long id) {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Member member = memberRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Member not found"));
 
         return projectRepository.findById(id)
-                .filter(p -> p.getUser().getId().equals(user.getId()))
+                .filter(p -> p.getMember().getId().equals(member.getId()))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -55,13 +55,13 @@ public class ProjectController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProject(@PathVariable Long id, @RequestBody Project projectDetails) {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("錯誤：找不到使用者"));
+        Member member = memberRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("錯誤：找不到會員"));
 
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("錯誤：找不到專案"));
 
-        if (!project.getUser().getId().equals(user.getId())) {
+        if (!project.getMember().getId().equals(member.getId())) {
             throw new RuntimeException("錯誤：您沒有權限修改此專案");
         }
 
@@ -75,13 +75,13 @@ public class ProjectController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProject(@PathVariable Long id) {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("錯誤：找不到使用者"));
+        Member member = memberRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("錯誤：找不到會員"));
 
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("錯誤：找不到專案"));
 
-        if (!project.getUser().getId().equals(user.getId())) {
+        if (!project.getMember().getId().equals(member.getId())) {
             throw new RuntimeException("錯誤：您沒有權限刪除此專案");
         }
 
